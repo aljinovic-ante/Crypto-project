@@ -4,15 +4,13 @@ const client = require("../utils/client");
 const router = express.Router();
 
 router.get("/search/:query", async (req, res) => {
-  console.log("🔥 HIT /search:", req.params.query);
-
-  const q = req.params.query.trim();
+  const q = String(req.params.query || "").trim();
+  const blockFromQuery = req.query.block ?? null;
 
   try {
-    // 1️⃣ BLOCK HEIGHT (broj)
+    // -------- BLOCK BY HEIGHT --------
     if (/^\d+$/.test(q)) {
       const height = Number(q);
-
       const hash = await client.getBlockHash(height);
       const block = await client.getBlock(hash, 2);
       const stats = await client.getBlockStats(height);
@@ -21,63 +19,105 @@ router.get("/search/:query", async (req, res) => {
         type: "block",
         height,
         hash,
-        time: block.time,
+        time: block.time ?? null,
         txCount: block.tx.length,
-        size: block.size,
-        weight: block.weight,
-        feeRange: stats.feerate_percentiles ?? null,
-        medianFee: stats.medianfee ?? null,
-        avgFee: stats.avgfee ?? null,
-        totalFee: stats.totalfee ?? null,
-        subsidy: stats.subsidy ?? null,
-        totalValue: stats.total_out ?? null
+        tx: block.tx,
+        size: block.size ?? null,
+        weight: block.weight ?? null,
+        feeRange: stats?.feerate_percentiles ?? null,
+        medianFee: stats?.medianfee ?? null,
+        avgFee: stats?.avgfee ?? null,
+        totalFee: stats?.totalfee ?? null,
+        subsidy: stats?.subsidy ?? null,
+        totalValue: stats?.total_out ?? null
       });
     }
 
-    // 2️⃣ HEX STRING (64 chars) → BLOCK HASH or TXID
+    // -------- 64 HEX: BLOCK HASH OR TXID --------
     if (/^[a-fA-F0-9]{64}$/.test(q)) {
-      // 2a️⃣ TRY BLOCK HASH
+      // 1️⃣ PROVJERI JE LI OVO BLOCK HASH
+      let block = null;
       try {
-        const block = await client.getBlock(q, 2);
+        const candidate = await client.getBlock(q, 2);
+        if (candidate?.hash === q) block = candidate;
+      } catch {}
+
+      if (block) {
         const stats = await client.getBlockStats(block.height);
 
         return res.json({
           type: "block",
           height: block.height,
-          hash: q,
-          time: block.time,
+          hash: block.hash,
+          time: block.time ?? null,
           txCount: block.tx.length,
-          size: block.size,
-          weight: block.weight,
-          feeRange: stats.feerate_percentiles ?? null,
-          medianFee: stats.medianfee ?? null,
-          avgFee: stats.avgfee ?? null,
-          totalFee: stats.totalfee ?? null,
-          subsidy: stats.subsidy ?? null,
-          totalValue: stats.total_out ?? null
+          tx: block.tx,
+          size: block.size ?? null,
+          weight: block.weight ?? null,
+          feeRange: stats?.feerate_percentiles ?? null,
+          medianFee: stats?.medianfee ?? null,
+          avgFee: stats?.avgfee ?? null,
+          totalFee: stats?.totalfee ?? null,
+          subsidy: stats?.subsidy ?? null,
+          totalValue: stats?.total_out ?? null
         });
-      } catch {
-        // ignore → try TX
       }
 
-      // 2b️⃣ TRY TRANSACTION
-      const tx = await client.getRawTransaction(q, true);
+      // 2️⃣ INAČE → TX (NEMA POGAĐANJA)
+      let fullTx;
+
+      if (blockFromQuery) {
+        fullTx = await client.getRawTransaction(q, true, blockFromQuery);
+      } else {
+        fullTx = await client.getRawTransaction(q, true);
+      }
+
+      const vin = fullTx.vin ?? [];
+      const vout = fullTx.vout ?? [];
+
+      let inputValue = null;
+      let fee = null;
+
+      if (!vin.some(v => v.coinbase) && fullTx.blockhash) {
+        let inSum = 0;
+        for (const v of vin) {
+          const prevTx = await client.getRawTransaction(v.txid, true);
+          const prevOut = prevTx.vout[v.vout];
+          inSum += Math.round(prevOut.value * 1e8);
+        }
+
+        let outSum = 0;
+        for (const o of vout) outSum += Math.round(o.value * 1e8);
+
+        inputValue = inSum;
+        fee = inSum - outSum;
+      }
+
+      let outputValue = 0;
+      for (const o of vout) outputValue += Math.round(o.value * 1e8);
 
       return res.json({
         type: "tx",
-        txid: tx.txid,
-        size: tx.size,
-        vinCount: tx.vin.length,
-        voutCount: tx.vout.length
+        txid: fullTx.txid,
+        version: fullTx.version ?? null,
+        size: fullTx.size ?? null,
+        vsize: fullTx.vsize ?? null,
+        weight: fullTx.weight ?? null,
+        locktime: fullTx.locktime ?? null,
+        blockhash: fullTx.blockhash ?? null,
+        confirmations: fullTx.confirmations ?? null,
+        vin,
+        vout,
+        inputValue,
+        outputValue,
+        fee
       });
     }
 
     res.status(400).json({ error: "Invalid input" });
   } catch (e) {
-    console.error("❌ RPC ERROR:", e.message);
     res.status(404).json({ error: "Not found" });
   }
 });
-
 
 module.exports = router;
