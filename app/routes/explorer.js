@@ -1,5 +1,6 @@
 const express = require("express");
 const client = require("../utils/client");
+const { parseCoinbaseTag } = require("./coinbase");
 
 const router = express.Router();
 
@@ -8,12 +9,14 @@ router.get("/search/:query", async (req, res) => {
   const blockFromQuery = req.query.block ?? null;
 
   try {
-    // -------- BLOCK BY HEIGHT --------
     if (/^\d+$/.test(q)) {
       const height = Number(q);
       const hash = await client.getBlockHash(height);
       const block = await client.getBlock(hash, 2);
       const stats = await client.getBlockStats(height);
+
+      const coinbaseHex = block.tx[0]?.vin?.[0]?.coinbase ?? null;
+      const minerTag = parseCoinbaseTag(coinbaseHex);
 
       return res.json({
         type: "block",
@@ -24,18 +27,17 @@ router.get("/search/:query", async (req, res) => {
         tx: block.tx,
         size: block.size ?? null,
         weight: block.weight ?? null,
-        feeRange: stats?.feerate_percentiles ?? null,
         medianFee: stats?.medianfee ?? null,
         avgFee: stats?.avgfee ?? null,
         totalFee: stats?.totalfee ?? null,
         subsidy: stats?.subsidy ?? null,
-        totalValue: stats?.total_out ?? null
+        totalValue: stats?.total_out ?? null,
+        minerTag,
+        minerCoinbase: coinbaseHex
       });
     }
 
-    // -------- 64 HEX: BLOCK HASH OR TXID --------
     if (/^[a-fA-F0-9]{64}$/.test(q)) {
-      // 1️⃣ PROVJERI JE LI OVO BLOCK HASH
       let block = null;
       try {
         const candidate = await client.getBlock(q, 2);
@@ -44,6 +46,9 @@ router.get("/search/:query", async (req, res) => {
 
       if (block) {
         const stats = await client.getBlockStats(block.height);
+
+        const coinbaseHex = block.tx[0]?.vin?.[0]?.coinbase ?? null;
+        const minerTag = parseCoinbaseTag(coinbaseHex);
 
         return res.json({
           type: "block",
@@ -54,23 +59,19 @@ router.get("/search/:query", async (req, res) => {
           tx: block.tx,
           size: block.size ?? null,
           weight: block.weight ?? null,
-          feeRange: stats?.feerate_percentiles ?? null,
           medianFee: stats?.medianfee ?? null,
           avgFee: stats?.avgfee ?? null,
           totalFee: stats?.totalfee ?? null,
           subsidy: stats?.subsidy ?? null,
-          totalValue: stats?.total_out ?? null
+          totalValue: stats?.total_out ?? null,
+          minerTag,
+          minerCoinbase: coinbaseHex
         });
       }
 
-      // 2️⃣ INAČE → TX (NEMA POGAĐANJA)
-      let fullTx;
-
-      if (blockFromQuery) {
-        fullTx = await client.getRawTransaction(q, true, blockFromQuery);
-      } else {
-        fullTx = await client.getRawTransaction(q, true);
-      }
+      let fullTx = blockFromQuery
+        ? await client.getRawTransaction(q, true, blockFromQuery)
+        : await client.getRawTransaction(q, true);
 
       const vin = fullTx.vin ?? [];
       const vout = fullTx.vout ?? [];
@@ -82,8 +83,7 @@ router.get("/search/:query", async (req, res) => {
         let inSum = 0;
         for (const v of vin) {
           const prevTx = await client.getRawTransaction(v.txid, true);
-          const prevOut = prevTx.vout[v.vout];
-          inSum += Math.round(prevOut.value * 1e8);
+          inSum += Math.round(prevTx.vout[v.vout].value * 1e8);
         }
 
         let outSum = 0;
@@ -116,7 +116,8 @@ router.get("/search/:query", async (req, res) => {
 
     res.status(400).json({ error: "Invalid input" });
   } catch (e) {
-    res.status(404).json({ error: "Not found" });
+    console.error("SEARCH ERROR:", e);
+    res.status(500).json({ error: "Internal error" });
   }
 });
 

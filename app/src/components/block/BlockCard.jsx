@@ -18,7 +18,7 @@ export default function BlockCard({ block }) {
         </h2>
 
         <div className="grid gap-3 text-sm text-slate-200">
-          <Row label="Hash" value={block.hash} mono />
+          <Row label="Hash" value={block.hash} mono wrap />
           <Row label="Transactions" value={block.txCount} />
           <Row
             label="Total Size"
@@ -56,6 +56,21 @@ export default function BlockCard({ block }) {
           <Row
             label="Total Output Value"
             value={block.totalValue && formatTriple(block.totalValue)}
+            wrap
+          />
+          <Row
+            label="Miner (Pool)"
+            value={
+              typeof block.minerTag === "string" && block.minerTag.length > 0
+                ? block.minerTag
+                : "Unknown"
+            }
+          />
+          <Row
+            label="Coinbase data"
+            value={block.minerCoinbase || "N/A"}
+            mono
+            wrap
           />
         </div>
       </div>

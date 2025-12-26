@@ -1,28 +1,38 @@
 const express = require("express");
 const client = require("../utils/client");
+const { parseCoinbaseTag } = require("./coinbase");
 
 const router = express.Router();
 
 router.get("/latest", async (req, res) => {
   try {
+    const count = 10;
     const tip = await client.getBlockCount();
     const blocks = [];
 
-    for (let i = tip; i > tip - 10; i--) {
-      const hash = await client.getBlockHash(i);
-      const block = await client.getBlock(hash, 1);
+    for (let i = 0; i < count; i++) {
+      const height = tip - i;
+      const hash = await client.getBlockHash(height);
+      const block = await client.getBlock(hash, 2);
+
+      const coinbaseHex = block.tx[0]?.vin?.[0]?.coinbase ?? null;
+      const minerTag = parseCoinbaseTag(coinbaseHex);
 
       blocks.push({
-        height: i,
+        height,
         hash,
         time: block.time,
-        txCount: block.tx.length
+        txCount: block.tx.length,
+        minerTag,
+        minerCoinbase: coinbaseHex,
+        btcEur: null
       });
     }
 
     res.json(blocks);
   } catch (e) {
-    res.status(500).json({ error: "Failed to load blocks" });
+    console.error(e);
+    res.status(500).json([]);
   }
 });
 
