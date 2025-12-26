@@ -52,7 +52,7 @@ export default function TxCard({ tx }) {
           </h2>
 
           <div className="grid gap-3 text-sm text-slate-200">
-            <Row label="TXID" value={tx.txid} mono />
+            <Row label="TXID" value={tx.txid} mono wrap/>
             <Row
                 label="Status"
                 value={

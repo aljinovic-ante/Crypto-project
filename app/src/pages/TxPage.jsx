@@ -30,21 +30,32 @@ export default function TxPage() {
       });
   }, [txid]);
 
-  return (
-    <div className="max-w-7xl mx-auto px-6 py-10">
-      {loading && (
-        <div className="text-slate-400 text-center py-10">
-          Loading…
-        </div>
-      )}
-
-      {error && (
-        <div className="text-red-400 bg-red-900/20 border border-red-800 p-4 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      {tx && <TxCard tx={tx} />}
+return (
+  <div className="max-w-7xl mx-auto px-6 py-10">
+    <div className="mb-8 text-center">
+      <h1 className="text-3xl font-semibold text-white">
+        Transaction Details
+      </h1>
     </div>
-  );
+    <hr></hr><br></br>
+    {loading && (
+      <div className="flex items-center justify-center min-h-[40vh] text-slate-400">
+        Fetching transaction information…
+      </div>
+    )}
+
+    {error && (
+      <div className="max-w-3xl mx-auto bg-red-900/20 border border-red-800 text-red-300 p-4 rounded-xl text-center">
+        {error}
+      </div>
+    )}
+
+    {tx && (
+      <div className="mt-6">
+        <TxCard tx={tx} />
+      </div>
+    )}
+  </div>
+);
+
 }

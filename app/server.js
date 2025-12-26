@@ -19,6 +19,9 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true });
 });
 
+const exchangeRoutes = require("./routes/exchange");
+app.use("/api/exchange", exchangeRoutes);
+
 app.listen(3001, () => {
   console.log("API running on http://localhost:3001");
 });

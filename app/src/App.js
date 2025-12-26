@@ -4,6 +4,7 @@ import ExplorerPage from "./pages/ExplorerPage";
 import BlockPage from "./pages/BlockPage";
 import TxPage from "./pages/TxPage";
 import SearchPage from "./pages/SearchPage";
+import ExchangePage from "./pages/ExchangePage";
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="/search/:query" element={<SearchPage />} />
           <Route path="/block/:id" element={<BlockPage />} />
           <Route path="/tx/:txid" element={<TxPage />} />
+          <Route path="/exchange" element={<ExchangePage />} />
         </Routes>
       </div>
     </BrowserRouter>

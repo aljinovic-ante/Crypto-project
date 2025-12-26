@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get("/latest", async (req, res) => {
   try {
-    const count = 10;
+    const count = 15;
     const tip = await client.getBlockCount();
     const blocks = [];
 
@@ -35,5 +35,46 @@ router.get("/latest", async (req, res) => {
     res.status(500).json([]);
   }
 });
+
+router.get("/latest/stream", async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  res.flushHeaders?.();
+
+  try {
+    const tip = await client.getBlockCount();
+
+    for (let i = 0; i < 15; i++) {
+      const height = tip - i;
+
+      const hash = await client.getBlockHash(height);
+      const block = await client.getBlock(hash, 2);
+
+      const coinbaseHex = block.tx[0]?.vin?.[0]?.coinbase ?? null;
+      const minerTag = parseCoinbaseTag(coinbaseHex);
+
+      const payload = {
+        height,
+        hash,
+        time: block.time,
+        txCount: block.tx.length,
+        minerTag,
+        minerCoinbase: coinbaseHex
+      };
+
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    res.end();
+  } catch (e) {
+    console.error("STREAM ERROR:", e);
+    res.end();
+  }
+});
+
 
 module.exports = router;

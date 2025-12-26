@@ -20,7 +20,7 @@ export default function OutputList({ vout }) {
             className="rounded-lg bg-slate-800 px-4 py-3 text-xs"
           >
             <div className="flex justify-between text-slate-300">
-              <span>Index #{out.n}</span>
+              <span>Output #{out.n}</span>
               <span>{out.value} BTC</span>
             </div>
 
@@ -30,9 +30,6 @@ export default function OutputList({ vout }) {
                 "Unknown address"}
             </div>
 
-            <div className="mt-1 text-slate-400">
-              {out.scriptPubKey?.type}
-            </div>
           </div>
         ))}
       </div>

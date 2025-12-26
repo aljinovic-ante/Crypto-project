@@ -1,22 +1,73 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+const CACHE_KEY = "latest_blocks_cache";
+const CACHE_TTL = 60 * 1000;
+
 export default function ExplorerPage() {
   const [latest, setLatest] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fromCache, setFromCache] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("http://localhost:3001/api/blocks/latest")
-      .then((r) => r.json())
-      .then((data) => {
-        setLatest(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setLatest([]);
-        setLoading(false);
+    let usedCache = false;
+
+    const cached = sessionStorage.getItem(CACHE_KEY);
+
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+
+        if (
+          parsed?.data &&
+          Array.isArray(parsed.data) &&
+          parsed.data.length > 0 &&
+          Date.now() - parsed.timestamp < CACHE_TTL
+        ) {
+          setLatest(parsed.data);
+          setLoading(false);
+          usedCache = true;
+        }
+      } catch {}
+    }
+
+    if (usedCache) return;
+
+    setLoading(true);
+
+    const es = new EventSource(
+      "http://localhost:3001/api/blocks/latest/stream"
+    );
+
+    es.onmessage = (e) => {
+      const block = JSON.parse(e.data);
+
+      setLatest(prev => {
+        if (prev.some(b => b.hash === block.hash)) return prev;
+
+        const updated = [...prev, block];
+
+        sessionStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({
+            timestamp: Date.now(),
+            data: updated
+          })
+        );
+
+        return updated;
       });
+
+      setLoading(false);
+    };
+
+    es.onerror = () => {
+      es.close();
+      setLoading(false);
+    };
+
+    return () => es.close();
   }, []);
 
   const formatDate = (ts) =>
@@ -31,12 +82,25 @@ export default function ExplorerPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
+      <div className="flex min-h-[20vh] flex-col items-center justify-center text-center">
+        <h1 className="text-2xl font-semibold text-white">
+          Bitcoin Block Explorer
+        </h1>
+
+        <p className="mt-2 text-slate-400 max-w-2xl">
+          Welcome! Here you can explore the latest Bitcoin blocks, inspect individual blocks,
+          transactions, view information, fees, and on-chain data in real time.
+        </p>
+      </div>
+      <div className="mt-20"></div>
       <h1 className="text-2xl font-semibold text-white mb-6">
-        Latest blocks
+        Awaiting latest blocks...
       </h1>
 
-      {loading && (
-        <div className="text-slate-400 text-center py-10">
+      <hr></hr><br></br>
+
+      {loading && latest.length === 0 && (
+        <div className="flex items-center justify-center min-h-[60vh] text-slate-400">
           Loading…
         </div>
       )}
@@ -60,14 +124,10 @@ export default function ExplorerPage() {
               </div>
 
               <div className="mt-1 text-xs text-slate-400">
-                {typeof b.time === "number" ? formatDate(b.time) : "N/A"}
+                {typeof b.time === "number"
+                  ? formatDate(b.time)
+                  : "N/A"}
               </div>
-
-              {typeof b.btcEur === "number" && (
-                <div className="mt-1 text-xs text-slate-400">
-                  1 BTC = {b.btcEur.toLocaleString("hr-HR")} €
-                </div>
-              )}
 
               {typeof b.minerTag === "string" && b.minerTag.length > 0 && (
                 <div className="mt-1 text-xs text-slate-500 truncate">
@@ -78,7 +138,7 @@ export default function ExplorerPage() {
               {typeof b.minerTag !== "string" &&
                 typeof b.minerCoinbase === "string" && (
                   <div className="mt-1 text-xs text-slate-500 truncate">
-                    Miner: {b.minerCoinbase.slice(0, 24)}…
+                    Miner: {b.minerCoinbase}
                   </div>
                 )}
 

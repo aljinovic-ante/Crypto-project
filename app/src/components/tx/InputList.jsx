@@ -17,19 +17,28 @@ export default function InputList({ vin }) {
         {vin.map((input, i) => (
           <div
             key={`${input.txid ?? "coinbase"}-${i}`}
-            className="rounded-lg bg-slate-800 px-4 py-3 text-xs"
+            className="rounded-lg bg-slate-800 px-4 py-3 text-sm"
           >
             {input.coinbase ? (
               <div className="text-slate-400 italic">
-                Coinbase transaction
+                Coinbase input
               </div>
             ) : (
               <>
-                <div className="font-mono text-slate-200 break-all">
-                  {input.txid}
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs text-slate-400">
+                    Input #{i}
+                  </span>
+
+                  {typeof input.value === "number" && (
+                    <span className="flex justify-between text-slate-300">
+                      {(input.value / 1e8).toFixed(8)} BTC
+                    </span>
+                  )}
                 </div>
-                <div className="mt-1 text-slate-400">
-                  Output index: {input.vout}
+
+                <div className="font-mono text-xs text-slate-200 break-all">
+                  {input.txid}
                 </div>
               </>
             )}

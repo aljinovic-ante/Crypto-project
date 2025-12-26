@@ -31,7 +31,9 @@ export default function Navbar() {
         >
           BlockExplorer
         </NavLink>
-
+        <NavLink to="/exchange" className={linkClass}>
+          Exchange
+        </NavLink>
         <form
           onSubmit={submit}
           className="ml-auto flex items-center gap-2"

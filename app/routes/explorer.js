@@ -46,7 +46,6 @@ router.get("/search/:query", async (req, res) => {
 
       if (block) {
         const stats = await client.getBlockStats(block.height);
-
         const coinbaseHex = block.tx[0]?.vin?.[0]?.coinbase ?? null;
         const minerTag = parseCoinbaseTag(coinbaseHex);
 
@@ -69,32 +68,51 @@ router.get("/search/:query", async (req, res) => {
         });
       }
 
-      let fullTx = blockFromQuery
+      const fullTx = blockFromQuery
         ? await client.getRawTransaction(q, true, blockFromQuery)
         : await client.getRawTransaction(q, true);
 
-      const vin = fullTx.vin ?? [];
+      const vinWithValue = [];
+
+      for (const v of fullTx.vin ?? []) {
+        if (v.coinbase) {
+          vinWithValue.push(v);
+          continue;
+        }
+
+        const prevTx = await client.getRawTransaction(v.txid, true);
+        const prevOut = prevTx.vout[v.vout];
+
+        vinWithValue.push({
+          ...v,
+          value: Math.round(prevOut.value * 1e8)
+        });
+      }
+
       const vout = fullTx.vout ?? [];
 
       let inputValue = null;
       let fee = null;
 
-      if (!vin.some(v => v.coinbase) && fullTx.blockhash) {
+      if (!vinWithValue.some(v => v.coinbase) && fullTx.blockhash) {
         let inSum = 0;
-        for (const v of vin) {
-          const prevTx = await client.getRawTransaction(v.txid, true);
-          inSum += Math.round(prevTx.vout[v.vout].value * 1e8);
+        for (const v of vinWithValue) {
+          if (typeof v.value === "number") inSum += v.value;
         }
 
         let outSum = 0;
-        for (const o of vout) outSum += Math.round(o.value * 1e8);
+        for (const o of vout) {
+          outSum += Math.round(o.value * 1e8);
+        }
 
         inputValue = inSum;
         fee = inSum - outSum;
       }
 
       let outputValue = 0;
-      for (const o of vout) outputValue += Math.round(o.value * 1e8);
+      for (const o of vout) {
+        outputValue += Math.round(o.value * 1e8);
+      }
 
       return res.json({
         type: "tx",
@@ -106,7 +124,7 @@ router.get("/search/:query", async (req, res) => {
         locktime: fullTx.locktime ?? null,
         blockhash: fullTx.blockhash ?? null,
         confirmations: fullTx.confirmations ?? null,
-        vin,
+        vin: vinWithValue,
         vout,
         inputValue,
         outputValue,
