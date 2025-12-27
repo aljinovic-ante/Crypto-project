@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 
 const CACHE_KEY = "latest_blocks_cache";
 const CACHE_TTL = 60 * 1000;
+const MAX_BLOCKS = 15;
 
 export default function ExplorerPage() {
   const [latest, setLatest] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [fromCache, setFromCache] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export default function ExplorerPage() {
           parsed.data.length > 0 &&
           Date.now() - parsed.timestamp < CACHE_TTL
         ) {
-          setLatest(parsed.data);
+          setLatest(parsed.data.slice(0, MAX_BLOCKS));
           setLoading(false);
           usedCache = true;
         }
@@ -46,7 +46,7 @@ export default function ExplorerPage() {
       setLatest(prev => {
         if (prev.some(b => b.hash === block.hash)) return prev;
 
-        const updated = [...prev, block];
+        const updated = [block, ...prev].slice(0, MAX_BLOCKS);
 
         sessionStorage.setItem(
           CACHE_KEY,
@@ -80,6 +80,9 @@ export default function ExplorerPage() {
       minute: "2-digit"
     });
 
+  const title =
+    latest.length >= MAX_BLOCKS ? "Latest blocks" : "Awaiting latest blocks...";
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
       <div className="flex min-h-[20vh] flex-col items-center justify-center text-center">
@@ -87,17 +90,19 @@ export default function ExplorerPage() {
           Bitcoin Block Explorer
         </h1>
 
-        <p className="mt-2 text-slate-400 max-w-2xl">
+        <p className="mt-1 text-slate-400 max-w-2xl">
           Welcome! Here you can explore the latest Bitcoin blocks, inspect individual blocks,
           transactions, view information, fees, and on-chain data in real time.
         </p>
       </div>
-      <div className="mt-20"></div>
-      <h1 className="text-2xl font-semibold text-white mb-6">
-        Awaiting latest blocks...
+
+      <div className="mt-10"></div>
+
+      <h1 className="text-2xl font-semibold text-white mb-1">
+        {title}
       </h1>
 
-      <hr></hr><br></br>
+      <hr /><br />
 
       {loading && latest.length === 0 && (
         <div className="flex items-center justify-center min-h-[60vh] text-slate-400">
@@ -123,26 +128,26 @@ export default function ExplorerPage() {
                 #{b.height}
               </div>
 
-              <div className="mt-1 text-xs text-slate-400">
+              <div className="mt-1 text-xs truncate text-white">
                 {typeof b.time === "number"
                   ? formatDate(b.time)
                   : "N/A"}
               </div>
 
               {typeof b.minerTag === "string" && b.minerTag.length > 0 && (
-                <div className="mt-1 text-xs text-slate-500 truncate">
+                <div className="mt-1 text-xs truncate text-white/70">
                   Miner: {b.minerTag}
                 </div>
               )}
 
               {typeof b.minerTag !== "string" &&
                 typeof b.minerCoinbase === "string" && (
-                  <div className="mt-1 text-xs text-slate-500 truncate">
+                  <div className="mt-1 text-xs truncate text-white/70">
                     Miner: {b.minerCoinbase}
                   </div>
                 )}
 
-              <div className="mt-2 text-xs text-slate-300">
+              <div className="mt-2 text-xs text-white/70">
                 {b.txCount} transactions
               </div>
             </button>

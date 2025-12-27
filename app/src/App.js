@@ -5,6 +5,7 @@ import BlockPage from "./pages/BlockPage";
 import TxPage from "./pages/TxPage";
 import SearchPage from "./pages/SearchPage";
 import ExchangePage from "./pages/ExchangePage";
+import MempoolPage from "./pages/MempoolPage";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/block/:id" element={<BlockPage />} />
           <Route path="/tx/:txid" element={<TxPage />} />
           <Route path="/exchange" element={<ExchangePage />} />
+          <Route path="/mempool" element={<MempoolPage />} />
         </Routes>
       </div>
     </BrowserRouter>

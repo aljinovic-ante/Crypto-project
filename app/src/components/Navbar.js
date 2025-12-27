@@ -34,6 +34,9 @@ export default function Navbar() {
         <NavLink to="/exchange" className={linkClass}>
           Exchange
         </NavLink>
+        <NavLink to="/mempool" className={linkClass}>
+          Mempool
+        </NavLink>
         <form
           onSubmit={submit}
           className="ml-auto flex items-center gap-2"

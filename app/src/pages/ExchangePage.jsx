@@ -21,7 +21,7 @@ const FIAT = [
 
 export default function ExchangePage() {
   const [from, setFrom] = useState("BTC");
-  const [to, setTo] = useState("USD");
+  const [to, setTo] = useState("EUR");
   const [rate, setRate] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
