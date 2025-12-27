@@ -6,6 +6,7 @@ import TxPage from "./pages/TxPage";
 import SearchPage from "./pages/SearchPage";
 import ExchangePage from "./pages/ExchangePage";
 import MempoolPage from "./pages/MempoolPage";
+import AddressPage from "./pages/AddressPage";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/tx/:txid" element={<TxPage />} />
           <Route path="/exchange" element={<ExchangePage />} />
           <Route path="/mempool" element={<MempoolPage />} />
+          <Route path="/address/:address" element={<AddressPage />} />
         </Routes>
       </div>
     </BrowserRouter>

@@ -23,6 +23,11 @@ export default function SearchPage() {
           return;
         }
 
+        if (res.type === "address") {
+          navigate(`/address/${res.address}`);
+          return;
+        }
+
         alert("Unexpected response from server.");
         navigate("/");
       })

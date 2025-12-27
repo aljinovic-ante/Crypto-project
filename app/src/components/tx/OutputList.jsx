@@ -1,5 +1,9 @@
+import { useNavigate } from "react-router-dom";
+
 export default function OutputList({ vout }) {
-  const outputCount = Array.isArray(vout) ? vout.length : 0;
+  const navigate = useNavigate();
+  const outputs = Array.isArray(vout) ? vout : [];
+  const outputCount = outputs.length;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-slate-900 p-5 shadow-xl">
@@ -14,24 +18,49 @@ export default function OutputList({ vout }) {
           </div>
         )}
 
-        {vout.map((out) => (
-          <div
-            key={out.n}
-            className="rounded-lg bg-slate-800 px-4 py-3 text-xs"
-          >
-            <div className="flex justify-between text-slate-300">
-              <span>Output #{out.n}</span>
-              <span>{out.value} BTC</span>
-            </div>
+        {outputs.map((out) => {
+          const address =
+            out.scriptPubKey?.address ??
+            out.scriptPubKey?.addresses?.[0] ??
+            null;
 
-            <div className="mt-1 font-mono text-slate-200 break-all">
-              {out.scriptPubKey?.address ??
-                out.scriptPubKey?.addresses?.[0] ??
-                "Unknown address"}
-            </div>
+          return (
+            <div
+              key={out.n}
+              className="rounded-lg bg-slate-800 px-4 py-3 text-sm"
+            >
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <span className="text-xs text-slate-400">
+                  Output #{out.n}
+                </span>
 
-          </div>
-        ))}
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-300 text-white">
+                    {out.value.toFixed(8)} BTC
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={!address}
+                    onClick={() => navigate(`/address/${address}`)}
+                    className={[
+                      "px-3 py-1 rounded-lg text-xs font-medium transition",
+                      address
+                        ? "bg-sky-500 hover:bg-sky-600 text-white"
+                        : "bg-slate-700 text-slate-400 cursor-not-allowed"
+                    ].join(" ")}
+                  >
+                    View address
+                  </button>
+                </div>
+              </div>
+              <div className="mt-2 text-xs break-all">
+                <span className="text-slate-400">Address: </span>
+                <span className="text-white">{address ?? "N/A"}</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

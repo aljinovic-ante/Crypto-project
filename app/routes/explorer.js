@@ -94,7 +94,11 @@ router.get("/search/:query", async (req, res) => {
 
         vinWithValue.push({
           ...v,
-          value: Math.round(prevOut.value * 1e8)
+          value: Math.round(prevOut.value * 1e8),
+          address:
+            prevOut.scriptPubKey?.address ??
+            prevOut.scriptPubKey?.addresses?.[0] ??
+            null
         });
       }
 
@@ -123,6 +127,15 @@ router.get("/search/:query", async (req, res) => {
         outputValue += Math.round(o.value * 1e8);
       }
 
+      let blockTime = null;
+
+      if (fullTx.blockhash) {
+        try {
+          const block = await client.getBlock(fullTx.blockhash);
+          blockTime = block.time ?? null;
+        } catch {}
+      }
+
       return res.json({
         type: "tx",
         txid: fullTx.txid,
@@ -133,6 +146,7 @@ router.get("/search/:query", async (req, res) => {
         locktime: fullTx.locktime ?? null,
         blockhash: fullTx.blockhash ?? null,
         confirmations: fullTx.confirmations ?? null,
+        blockTime,
         vin: vinWithValue,
         vout,
         inputValue,
@@ -140,6 +154,26 @@ router.get("/search/:query", async (req, res) => {
         fee
       });
     }
+
+    if (
+        /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/.test(q)
+      ) {
+        try {
+          const info = await client.command("getaddressinfo", q);
+
+          return res.json({
+            type: "address",
+            address: q,
+            isValid: info.isvalid,
+            isScript: info.isscript,
+            isWitness: info.iswitness,
+            witnessVersion: info.witness_version ?? null,
+            witnessProgram: info.witness_program ?? null
+          });
+        } catch {
+          return res.status(404).json({ error: "Address not found" });
+        }
+      }
 
     return res.status(400).json({ error: "Invalid input" });
 

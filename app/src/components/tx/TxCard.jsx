@@ -40,6 +40,20 @@ export default function TxCard({ tx }) {
     (v) =>
       Array.isArray(v.txinwitness) && v.txinwitness.length > 0
   );
+  const formatDate = (ts) => {
+    if (!ts) return "N/A";
+
+    return new Date(ts * 1000).toLocaleString("hr-HR", {
+      timeZone: "Europe/Zagreb",
+      hour12: false,
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -53,6 +67,14 @@ export default function TxCard({ tx }) {
 
           <div className="grid gap-3 text-sm text-slate-200">
             <Row label="TXID" value={tx.txid} mono wrap/>
+            <Row
+              label="Date"
+              value={
+                typeof tx.blockTime === "number"
+                  ? formatDate(tx.blockTime)
+                  : "Unconfirmed (in mempool)"
+              }
+            />
             <Row
                 label="Status"
                 value={
