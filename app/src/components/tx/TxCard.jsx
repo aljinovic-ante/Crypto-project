@@ -68,6 +68,14 @@ export default function TxCard({ tx }) {
           <div className="grid gap-3 text-sm text-slate-200">
             <Row label="TXID" value={tx.txid} mono wrap/>
             <Row
+                label="Block"
+                value={
+                  typeof tx.blockHeight === "number"
+                    ? `#${tx.blockHeight}`
+                    : "Unconfirmed"
+                }
+            />
+            <Row
               label="Date"
               value={
                 typeof tx.blockTime === "number"

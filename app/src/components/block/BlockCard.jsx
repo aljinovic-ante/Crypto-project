@@ -2,11 +2,22 @@ import Row from "../ui/Row";
 import { formatTriple } from "../../utils/format";
 
 export default function BlockCard({ block }) {
-  const time =
+  const dateTime =
     block.time &&
     new Date(block.time * 1000).toLocaleString("hr-HR", {
-      timeZone: "Europe/Zagreb"
+      timeZone: "Europe/Zagreb",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
     });
+
+  const reward =
+    block.subsidy &&
+    block.totalFee &&
+    formatTriple(block.subsidy + block.totalFee);
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 p-6 shadow-2xl">
@@ -18,17 +29,20 @@ export default function BlockCard({ block }) {
         </h2>
 
         <div className="grid gap-3 text-sm text-slate-200">
+          <Row label="Height" value={block.height} />
           <Row label="Hash" value={block.hash} mono wrap />
+          <Row label="Merkle Root" value={block.merkleRoot} mono wrap />
+          <Row label="Block timestamp" value={dateTime} />
           <Row label="Transactions" value={block.txCount} />
           <Row
             label="Total Size"
             value={block.size && `${(block.size / 1e6).toFixed(2)} MB`}
           />
-          <Row label="Time" value={time} />
           <Row
-            label="Weight"
-            value={block.weight && `${block.weight} WU`}
+            label="Difficulty"
+            value={block.difficulty && block.difficulty.toLocaleString("en-US")}
           />
+          <Row label="Nonce" value={block.nonce} />
           <Row
             label="Median Fee"
             value={block.medianFee && formatTriple(block.medianFee)}
@@ -46,12 +60,8 @@ export default function BlockCard({ block }) {
             value={block.subsidy && formatTriple(block.subsidy)}
           />
           <Row
-            label="Subsidy + Fee"
-            value={
-              block.subsidy &&
-              block.totalFee &&
-              formatTriple(block.subsidy + block.totalFee)
-            }
+            label="Reward"
+            value={reward}
           />
           <Row
             label="Total Output Value"

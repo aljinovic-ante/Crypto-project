@@ -16,10 +16,7 @@ export default function ExplorerPage() {
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (
-          parsed?.data &&
-          Date.now() - parsed.timestamp < CACHE_TTL
-        ) {
+        if (parsed?.data && Date.now() - parsed.timestamp < CACHE_TTL) {
           setLatest(parsed.data);
           setLoading(false);
         }
@@ -33,8 +30,8 @@ export default function ExplorerPage() {
     es.onmessage = (e) => {
       const block = JSON.parse(e.data);
 
-      setLatest(prev => {
-        if (prev.some(b => b.hash === block.hash)) return prev;
+      setLatest((prev) => {
+        if (prev.some((b) => b.hash === block.hash)) return prev;
 
         const updated = [...prev, block]
           .sort((a, b) => b.height - a.height)
@@ -72,6 +69,11 @@ export default function ExplorerPage() {
       minute: "2-digit"
     });
 
+  const shortCoinbase = (value) =>
+    value && value.length > 12
+      ? `${value.slice(0, 6)}…${value.slice(-6)}`
+      : value;
+
   const title =
     latest.length >= MAX_BLOCKS
       ? "Latest blocks"
@@ -80,12 +82,12 @@ export default function ExplorerPage() {
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
       <div className="flex min-h-[20vh] flex-col items-center justify-center text-center">
-        <h1 className=" predictor text-2xl font-semibold text-white">
+        <h1 className="predictor text-2xl font-semibold text-white">
           Bitcoin Block Explorer
         </h1>
 
         <p className="mt-1 text-slate-400 max-w-2xl">
-          Explore newly mined Bitcoin blocks in real time as they are added to the blockchain.
+          Explore Bitcoin blocks, transactions, and addresses in real time as they are added to the blockchain.
         </p>
       </div>
 
@@ -109,23 +111,32 @@ export default function ExplorerPage() {
               <button
                 key={b.hash}
                 onClick={() => navigate(`/block/${b.height}`)}
-                className="rounded-xl border border-white/10 bg-gradient-to-br from-slate-900 to-indigo-950 p-4 text-left hover:shadow-xl transition"
+                className="group relative rounded-xl border border-white/10 bg-gradient-to-br from-slate-900 to-indigo-950 p-4 text-left transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:border-indigo-400/40 hover:shadow-2xl hover:shadow-indigo-900/40"
               >
-                <div className="text-lg font-semibold text-white">
+                <div className="absolute inset-0 rounded-xl opacity-0 transition-opacity duration-200 group-hover:opacity-100 bg-gradient-to-br from-indigo-500/10 to-transparent" />
+
+                <div className="relative text-lg font-semibold text-white">
                   #{b.height}
                 </div>
 
-                <div className="mt-1 text-xs text-white">
+                <div className="relative mt-1 text-xs text-white">
                   {formatDate(b.time)}
                 </div>
 
                 {(b.minerTag || b.minerCoinbase) && (
-                  <div className="mt-1 text-xs text-white/70 truncate">
-                    Miner: {b.minerTag || b.minerCoinbase}
+                  <div className="relative mt-2 text-xs text-white/70">
+                    <div className="font-medium text-white/80">
+                      Miner:
+                    </div>
+                    <div>
+                      {b.minerTag
+                        ? b.minerTag
+                        : shortCoinbase(b.minerCoinbase)}
+                    </div>
                   </div>
                 )}
 
-                <div className="mt-2 text-xs text-white/70">
+                <div className="relative mt-3 text-xs text-white/70">
                   {b.txCount} transactions
                 </div>
               </button>

@@ -4,6 +4,31 @@ const { parseCoinbaseTag } = require("./coinbase");
 
 const router = express.Router();
 
+function buildBlockResponse(block, stats) {
+  const coinbaseHex = block.tx[0]?.vin?.[0]?.coinbase ?? null;
+  const minerTag = parseCoinbaseTag(coinbaseHex);
+
+  return {
+    type: "block",
+    height: block.height,
+    hash: block.hash,
+    time: block.time ?? null,
+    merkleRoot: block.merkleroot ?? null,
+    nonce: block.nonce ?? null,
+    difficulty: block.difficulty ?? null,
+    txCount: block.tx.length,
+    tx: block.tx,
+    size: block.size ?? null,
+    medianFee: stats?.medianfee ?? null,
+    avgFee: stats?.avgfee ?? null,
+    totalFee: stats?.totalfee ?? null,
+    subsidy: stats?.subsidy ?? null,
+    totalValue: stats?.total_out ?? null,
+    minerTag,
+    minerCoinbase: coinbaseHex
+  };
+}
+
 router.get("/search/:query", async (req, res) => {
   const q = String(req.params.query || "").trim();
   const blockFromQuery = req.query.block ?? null;
@@ -21,26 +46,7 @@ router.get("/search/:query", async (req, res) => {
       const block = await client.getBlock(hash, 2);
       const stats = await client.getBlockStats(height);
 
-      const coinbaseHex = block.tx[0]?.vin?.[0]?.coinbase ?? null;
-      const minerTag = parseCoinbaseTag(coinbaseHex);
-
-      return res.json({
-        type: "block",
-        height,
-        hash,
-        time: block.time ?? null,
-        txCount: block.tx.length,
-        tx: block.tx,
-        size: block.size ?? null,
-        weight: block.weight ?? null,
-        medianFee: stats?.medianfee ?? null,
-        avgFee: stats?.avgfee ?? null,
-        totalFee: stats?.totalfee ?? null,
-        subsidy: stats?.subsidy ?? null,
-        totalValue: stats?.total_out ?? null,
-        minerTag,
-        minerCoinbase: coinbaseHex
-      });
+      return res.json(buildBlockResponse(block, stats));
     }
 
     if (/^[a-fA-F0-9]{64}$/.test(q)) {
@@ -49,30 +55,14 @@ router.get("/search/:query", async (req, res) => {
 
         if (block?.hash === q) {
           const stats = await client.getBlockStats(block.height);
-          const coinbaseHex = block.tx[0]?.vin?.[0]?.coinbase ?? null;
-          const minerTag = parseCoinbaseTag(coinbaseHex);
-
-          return res.json({
-            type: "block",
-            height: block.height,
-            hash: block.hash,
-            time: block.time ?? null,
-            txCount: block.tx.length,
-            tx: block.tx,
-            size: block.size ?? null,
-            weight: block.weight ?? null,
-            medianFee: stats?.medianfee ?? null,
-            avgFee: stats?.avgfee ?? null,
-            totalFee: stats?.totalfee ?? null,
-            subsidy: stats?.subsidy ?? null,
-            totalValue: stats?.total_out ?? null,
-            minerTag,
-            minerCoinbase: coinbaseHex
-          });
+          return res.json(buildBlockResponse(block, stats));
         }
       } catch {}
+    }
 
+    if (/^[a-fA-F0-9]{64}$/.test(q)) {
       let fullTx;
+
       try {
         fullTx = blockFromQuery
           ? await client.getRawTransaction(q, true, blockFromQuery)
@@ -128,11 +118,13 @@ router.get("/search/:query", async (req, res) => {
       }
 
       let blockTime = null;
+      let blockHeight = null;
 
       if (fullTx.blockhash) {
         try {
           const block = await client.getBlock(fullTx.blockhash);
           blockTime = block.time ?? null;
+          blockHeight = block.height ?? null;
         } catch {}
       }
 
@@ -145,6 +137,7 @@ router.get("/search/:query", async (req, res) => {
         weight: fullTx.weight ?? null,
         locktime: fullTx.locktime ?? null,
         blockhash: fullTx.blockhash ?? null,
+        blockHeight,
         confirmations: fullTx.confirmations ?? null,
         blockTime,
         vin: vinWithValue,
@@ -158,22 +151,22 @@ router.get("/search/:query", async (req, res) => {
     if (
         /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/.test(q)
       ) {
-        try {
-          const info = await client.command("getaddressinfo", q);
+      try {
+        const info = await client.command("getaddressinfo", q);
 
-          return res.json({
-            type: "address",
-            address: q,
-            isValid: info.isvalid,
-            isScript: info.isscript,
-            isWitness: info.iswitness,
-            witnessVersion: info.witness_version ?? null,
-            witnessProgram: info.witness_program ?? null
-          });
-        } catch {
-          return res.status(404).json({ error: "Address not found" });
-        }
+        return res.json({
+          type: "address",
+          address: q,
+          isValid: info.isvalid,
+          isScript: info.isscript,
+          isWitness: info.iswitness,
+          witnessVersion: info.witness_version ?? null,
+          witnessProgram: info.witness_program ?? null
+        });
+      } catch {
+        return res.status(404).json({ error: "Address not found" });
       }
+    }
 
     return res.status(400).json({ error: "Invalid input" });
 
