@@ -11,6 +11,12 @@ router.get("/search/:query", async (req, res) => {
   try {
     if (/^\d+$/.test(q)) {
       const height = Number(q);
+      const tip = await client.getBlockCount();
+
+      if (height > tip) {
+        return res.status(404).json({ error: "Block not found" });
+      }
+
       const hash = await client.getBlockHash(height);
       const block = await client.getBlock(hash, 2);
       const stats = await client.getBlockStats(height);
@@ -38,39 +44,42 @@ router.get("/search/:query", async (req, res) => {
     }
 
     if (/^[a-fA-F0-9]{64}$/.test(q)) {
-      let block = null;
       try {
-        const candidate = await client.getBlock(q, 2);
-        if (candidate?.hash === q) block = candidate;
+        const block = await client.getBlock(q, 2);
+
+        if (block?.hash === q) {
+          const stats = await client.getBlockStats(block.height);
+          const coinbaseHex = block.tx[0]?.vin?.[0]?.coinbase ?? null;
+          const minerTag = parseCoinbaseTag(coinbaseHex);
+
+          return res.json({
+            type: "block",
+            height: block.height,
+            hash: block.hash,
+            time: block.time ?? null,
+            txCount: block.tx.length,
+            tx: block.tx,
+            size: block.size ?? null,
+            weight: block.weight ?? null,
+            medianFee: stats?.medianfee ?? null,
+            avgFee: stats?.avgfee ?? null,
+            totalFee: stats?.totalfee ?? null,
+            subsidy: stats?.subsidy ?? null,
+            totalValue: stats?.total_out ?? null,
+            minerTag,
+            minerCoinbase: coinbaseHex
+          });
+        }
       } catch {}
 
-      if (block) {
-        const stats = await client.getBlockStats(block.height);
-        const coinbaseHex = block.tx[0]?.vin?.[0]?.coinbase ?? null;
-        const minerTag = parseCoinbaseTag(coinbaseHex);
-
-        return res.json({
-          type: "block",
-          height: block.height,
-          hash: block.hash,
-          time: block.time ?? null,
-          txCount: block.tx.length,
-          tx: block.tx,
-          size: block.size ?? null,
-          weight: block.weight ?? null,
-          medianFee: stats?.medianfee ?? null,
-          avgFee: stats?.avgfee ?? null,
-          totalFee: stats?.totalfee ?? null,
-          subsidy: stats?.subsidy ?? null,
-          totalValue: stats?.total_out ?? null,
-          minerTag,
-          minerCoinbase: coinbaseHex
-        });
+      let fullTx;
+      try {
+        fullTx = blockFromQuery
+          ? await client.getRawTransaction(q, true, blockFromQuery)
+          : await client.getRawTransaction(q, true);
+      } catch {
+        return res.status(404).json({ error: "Not found" });
       }
-
-      const fullTx = blockFromQuery
-        ? await client.getRawTransaction(q, true, blockFromQuery)
-        : await client.getRawTransaction(q, true);
 
       const vinWithValue = [];
 
@@ -132,7 +141,8 @@ router.get("/search/:query", async (req, res) => {
       });
     }
 
-    res.status(400).json({ error: "Invalid input" });
+    return res.status(400).json({ error: "Invalid input" });
+
   } catch (e) {
     console.error("SEARCH ERROR:", e);
     res.status(500).json({ error: "Internal error" });
