@@ -49,7 +49,7 @@ export default function MempoolPage() {
         return [tx, ...prev].slice(0, MAX_TX);
       });
 
-      bucketRef.current.push(tx.value);
+      if (typeof tx.value === "number") bucketRef.current.push(tx.value);
     };
 
     return () => es.close();
@@ -82,8 +82,24 @@ export default function MempoolPage() {
   const stats = useMemo(() => {
     if (txs.length === 0) return null;
 
-    const totalValue = txs.reduce((s, t) => s + t.value, 0);
-    const feeRates = txs
+    const validTxs = txs.filter(
+      t =>
+        typeof t.fee === "number" &&
+        typeof t.vsize === "number" &&
+        t.vsize > 0
+    );
+
+    if (validTxs.length === 0) {
+      const totalValue = txs.reduce((s, t) => s + (typeof t.value === "number" ? t.value : 0), 0);
+      return {
+        totalValue: totalValue.toFixed(2),
+        avgFee: "N/A",
+        medianFee: "N/A"
+      };
+    }
+
+    const totalValue = validTxs.reduce((s, t) => s + t.value, 0);
+    const feeRates = validTxs
       .map(t => (t.fee * 1e8) / t.vsize)
       .sort((a, b) => a - b);
 
@@ -101,6 +117,12 @@ export default function MempoolPage() {
     const buckets = { "0–1": 0, "1–5": 0, "5–10": 0, "10+": 0 };
 
     txs.forEach(tx => {
+      if (
+        typeof tx.fee !== "number" ||
+        typeof tx.vsize !== "number" ||
+        tx.vsize === 0
+      ) return;
+
       const rate = (tx.fee * 1e8) / tx.vsize;
       if (rate < 1) buckets["0–1"]++;
       else if (rate < 5) buckets["1–5"]++;
@@ -139,11 +161,15 @@ export default function MempoolPage() {
           </div>
           <div className="bg-slate-900 rounded-xl p-3">
             <div className="text-xs text-white/60">Avg fee rate</div>
-            <div className="text-xl font-semibold">{stats.avgFee} sat/vB</div>
+            <div className="text-xl font-semibold">
+              {stats.avgFee === "N/A" ? "N/A" : `${stats.avgFee} sat/vB`}
+            </div>
           </div>
           <div className="bg-slate-900 rounded-xl p-3">
             <div className="text-xs text-white/60">Median fee</div>
-            <div className="text-xl font-semibold">{stats.medianFee} sat/vB</div>
+            <div className="text-xl font-semibold">
+              {stats.medianFee === "N/A" ? "N/A" : `${stats.medianFee} sat/vB`}
+            </div>
           </div>
         </div>
       )}
@@ -227,11 +253,21 @@ export default function MempoolPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {txs.map(tx => {
-          const rate = (tx.fee * 1e8) / tx.vsize;
+          const hasRate =
+            typeof tx.fee === "number" &&
+            typeof tx.vsize === "number" &&
+            tx.vsize > 0;
+
+          const rate = hasRate ? (tx.fee * 1e8) / tx.vsize : null;
+
           const color =
-            rate < 2 ? "text-green-400" :
-            rate < 5 ? "text-yellow-400" :
-            "text-red-400";
+            rate !== null
+              ? rate < 2
+                ? "text-green-400"
+                : rate < 5
+                ? "text-yellow-400"
+                : "text-red-400"
+              : "text-white/70";
 
           return (
             <div
@@ -242,9 +278,11 @@ export default function MempoolPage() {
                 TXID: {renderTxid(tx.txid)}
               </div>
               <div className="text-sm mt-2">Value: {tx.value} BTC</div>
-              <div className="text-sm text-white/70">Fee: {tx.fee} BTC</div>
+              <div className="text-sm text-white/70">
+                Fee: {typeof tx.fee === "number" ? tx.fee : "N/A"} BTC
+              </div>
               <div className={`text-sm ${color}`}>
-                Fee rate: {rate.toFixed(2)} sat/vB
+                Fee rate: {rate !== null ? rate.toFixed(2) : "N/A"} sat/vB
               </div>
             </div>
           );

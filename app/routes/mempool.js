@@ -1,28 +1,52 @@
 const express = require("express");
 const router = express.Router();
+const client = require("../utils/client");
 
-router.get("/stream", (req, res) => {
+router.get("/stream", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  const interval = setInterval(() => {
-    const tx = {
-      txid: [...Array(64)]
-      .map(() => Math.floor(Math.random() * 16).toString(16))
-      .join(""),
-      value: +(Math.random() * 2).toFixed(4),
-      fee: +(Math.random() * 0.001).toFixed(6),
-      vsize: Math.floor(Math.random() * 200 + 100),
-      timestamp: Math.floor(Date.now() / 1000)
-    };
+  let alive = true;
+  req.on("close", () => (alive = false));
 
-    res.write(`data: ${JSON.stringify(tx)}\n\n`);
-  }, 800);
+  const seen = new Set();
 
-  req.on("close", () => {
-    clearInterval(interval);
-  });
+  while (alive) {
+    let mempool;
+
+    try {
+      mempool = await client.getRawMempool();
+    } catch {
+      await new Promise(r => setTimeout(r, 1000));
+      continue;
+    }
+
+    for (const txid of mempool) {
+      if (!alive) break;
+      if (seen.has(txid)) continue;
+
+      seen.add(txid);
+
+      try {
+        const tx = await client.getRawTransaction(txid, true);
+        const entry = await client.getMempoolEntry(txid);
+
+        const payload = {
+          txid,
+          value: tx.vout.reduce((s, o) => s + o.value, 0),
+          fee: entry.fees?.base ?? null,
+          vsize: entry.vsize ?? null,
+          timestamp: Math.floor(Date.now() / 1000)
+        };
+
+        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+      } catch {}
+    }
+
+    if (seen.size > 5000) seen.clear();
+    await new Promise(r => setTimeout(r, 2000));
+  }
 });
 
 module.exports = router;
