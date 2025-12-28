@@ -29,7 +29,7 @@ export default function Navbar() {
           reloadDocument
           className="text-slate-100 font-semibold tracking-tight text-lg"
         >
-          BlockExplorer
+          BitWatch
         </NavLink>
         <NavLink to="/exchange" className={linkClass}>
           Exchange

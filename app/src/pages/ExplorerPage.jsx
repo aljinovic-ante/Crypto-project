@@ -83,7 +83,7 @@ export default function ExplorerPage() {
     <div className="max-w-7xl mx-auto px-6 py-10">
       <div className="flex min-h-[20vh] flex-col items-center justify-center text-center">
         <h1 className="predictor text-2xl font-semibold text-white">
-          Bitcoin Block Explorer
+          Welcome to BitWatch!
         </h1>
 
         <p className="mt-1 text-slate-400 max-w-2xl">
