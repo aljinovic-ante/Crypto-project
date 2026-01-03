@@ -9,6 +9,7 @@
     "@testing-library/user-event": "^13.5.0",
     "bitcoin-core": "^5.0.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.11.0",
