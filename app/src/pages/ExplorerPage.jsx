@@ -1,13 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const CACHE_KEY = "latest_blocks_cache";
 const CACHE_TTL = 60 * 1000;
 const MAX_BLOCKS = 15;
 
+const BTC_FACTS = [
+  "Bitcoin’s supply is capped at 21 million coins.",
+  "A new Bitcoin block is found roughly every 10 minutes on average.",
+  "Bitcoin uses Proof of Work to secure the network.",
+  "The smallest unit of Bitcoin is a satoshi: 0.00000001 BTC.",
+  "The block subsidy is cut in half roughly every four years (the halving).",
+  "Every Bitcoin transaction is recorded on a public ledger called the blockchain.",
+  "Mining difficulty adjusts every 2,016 blocks to maintain ~10-minute block times.",
+  "Transaction fees are paid in satoshis and help miners prioritize transactions.",
+  "Coinbase transactions create new BTC and collect transaction fees.",
+  "Each Bitcoin block links cryptographically to the previous block via its hash.",
+  "A single block can contain thousands of transactions.",
+  "If two miners find a block simultaneously, the network temporarily forks.",
+  "Blocks that are not extended by later blocks become orphaned.",
+  "The Merkle root summarizes all transactions included in a block.",
+  "Bitcoin’s 10-minute block time is a target, not a strict rule.",
+  "Anyone can run a Bitcoin node and independently verify the blockchain."
+];
+
 export default function ExplorerPage() {
   const [latest, setLatest] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [factIndex, setFactIndex] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,9 +43,7 @@ export default function ExplorerPage() {
       } catch {}
     }
 
-    const es = new EventSource(
-      "http://localhost:3001/api/blocks/latest/stream"
-    );
+    const es = new EventSource("http://localhost:3001/api/blocks/latest/stream");
 
     es.onmessage = (e) => {
       const block = JSON.parse(e.data);
@@ -58,6 +76,18 @@ export default function ExplorerPage() {
     return () => es.close();
   }, []);
 
+  useEffect(() => {
+    if (!(loading && latest.length === 0)) return;
+
+    const id = setInterval(() => {
+      setFactIndex((i) => (i + 1) % BTC_FACTS.length);
+    }, 4000);
+
+    return () => clearInterval(id);
+  }, [loading, latest.length]);
+
+  const fact = useMemo(() => BTC_FACTS[factIndex], [factIndex]);
+
   const formatDate = (ts) =>
     new Date(ts * 1000).toLocaleString("hr-HR", {
       timeZone: "Europe/Zagreb",
@@ -75,9 +105,7 @@ export default function ExplorerPage() {
       : value;
 
   const title =
-    latest.length >= MAX_BLOCKS
-      ? "Latest blocks"
-      : "Awaiting latest blocks...";
+    latest.length >= MAX_BLOCKS ? "Latest blocks" : "Awaiting latest blocks...";
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
@@ -87,19 +115,24 @@ export default function ExplorerPage() {
         </h1>
 
         <p className="mt-1 text-slate-400 max-w-2xl">
-          Explore Bitcoin blocks, transactions, and addresses in real time as they are added to the blockchain.
+          Explore Bitcoin blocks, transactions, and addresses in real time as they
+          are added to the blockchain.
         </p>
       </div>
 
-      <h2 className="text-2xl font-semibold text-white mb-1">
-        {title}
-      </h2>
+      <h2 className="text-2xl font-semibold text-white mb-1">{title}</h2>
 
-      <hr /><br />
+      <hr />
+      <br />
 
       {loading && latest.length === 0 && (
-        <div className="flex justify-center text-slate-400">
-          Loading…
+        <div className="flex flex-col items-center justify-center text-slate-400 gap-3">
+          <div className="max-w-2xl w-full rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-4">
+            <div className="text-base font-medium tracking-wide text-white">
+              While blocks are arriving... Did you know that
+            </div>
+            <div className="mt-1 text-base text-white/80">{fact}</div>
+          </div>
         </div>
       )}
 
@@ -125,13 +158,9 @@ export default function ExplorerPage() {
 
                 {(b.minerTag || b.minerCoinbase) && (
                   <div className="relative mt-2 text-xs text-white/70">
-                    <div className="font-medium text-white/80">
-                      Miner:
-                    </div>
+                    <div className="font-medium text-white/80">Miner:</div>
                     <div>
-                      {b.minerTag
-                        ? b.minerTag
-                        : shortCoinbase(b.minerCoinbase)}
+                      {b.minerTag ? b.minerTag : shortCoinbase(b.minerCoinbase)}
                     </div>
                   </div>
                 )}

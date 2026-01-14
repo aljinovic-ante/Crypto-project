@@ -177,7 +177,7 @@ export default function MempoolPage() {
       <div className="mb-10 grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-slate-900 rounded-xl p-4">
           <div className="text-sm text-white/80">
-            Transaction value over time
+            Transaction value over time (graph updates every 10 seconds)
           </div>
           <div className="text-xs text-white/50 mb-2">
             Shows how the average value of transactions entering the mempool changes over time.
@@ -233,7 +233,9 @@ export default function MempoolPage() {
         </div>
       </div>
 
-      <div className="text-sm mb-4">Mempool size: {txs.length} tx</div>
+      <div className="text-lg font-medium mb-4 text-white/90">
+        Live feed: {txs.length} recent unconfirmed transactions currently displayed (max {MAX_TX})
+      </div>
       <hr /><br></br>
 
       <div className="flex flex-wrap gap-6 text-sm text-white/90 mb-6">

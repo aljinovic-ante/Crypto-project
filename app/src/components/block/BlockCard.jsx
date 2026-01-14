@@ -1,5 +1,5 @@
 import Row from "../ui/Row";
-import { formatTriple } from "../../utils/format";
+import { formatEUR,formatTriple,BTC_EUR } from "../../utils/format";
 
 export default function BlockCard({ block }) {
   const dateTime =
@@ -65,7 +65,19 @@ export default function BlockCard({ block }) {
           />
           <Row
             label="Total Output Value"
-            value={block.totalValue && formatTriple(block.totalValue)}
+            value={
+              block.totalValue && (
+                <div className="flex flex-col gap-1">
+                  <span>
+                    {block.totalValue.toLocaleString("hr-HR")} sat ·{" "}
+                    {(block.totalValue / 1e8).toFixed(8)} BTC ·
+                  </span>
+                  <span className="">
+                    €{formatEUR((block.totalValue / 1e8) * BTC_EUR)}
+                  </span>
+                </div>
+              )
+            }
             wrap
           />
           <Row

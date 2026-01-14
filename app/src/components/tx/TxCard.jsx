@@ -20,6 +20,51 @@ const formatTriple = (sat) => {
   })}`;
 };
 
+const toSatsFromBtc = (btc) =>
+  typeof btc === "number" && !Number.isNaN(btc)
+    ? Math.round(btc * 1e8)
+    : null;
+
+const sumInputsSat = (vin) => {
+  if (!Array.isArray(vin) || vin.length === 0) return null;
+
+  let sum = 0;
+  let hasAny = false;
+
+  for (const v of vin) {
+    const val =
+      typeof v?.value === "number"
+        ? v.value
+        : typeof v?.prevout?.value === "number"
+          ? v.prevout.value
+          : null;
+
+    if (typeof val === "number" && !Number.isNaN(val)) {
+      sum += val;
+      hasAny = true;
+    }
+  }
+
+  return hasAny ? sum : null;
+};
+
+const sumOutputsSat = (vout) => {
+  if (!Array.isArray(vout) || vout.length === 0) return null;
+
+  let sum = 0;
+  let hasAny = false;
+
+  for (const o of vout) {
+    const sats = toSatsFromBtc(o?.value);
+    if (typeof sats === "number" && !Number.isNaN(sats)) {
+      sum += sats;
+      hasAny = true;
+    }
+  }
+
+  return hasAny ? sum : null;
+};
+
 export default function TxCard({ tx }) {
   if (!tx) return null;
 
@@ -29,17 +74,33 @@ export default function TxCard({ tx }) {
   const isCoinbase =
     vin.length === 1 && typeof vin[0]?.coinbase === "string";
 
+  const derivedInputSat = !isCoinbase ? sumInputsSat(vin) : null;
+  const derivedOutputSat = sumOutputsSat(vout);
+
+  const inputSat =
+    typeof tx.inputValue === "number" ? tx.inputValue : derivedInputSat;
+
+  const outputSat =
+    typeof tx.outputValue === "number" ? tx.outputValue : derivedOutputSat;
+
+  const feeSat =
+    typeof tx.fee === "number"
+      ? tx.fee
+      : !isCoinbase &&
+          typeof inputSat === "number" &&
+          typeof outputSat === "number"
+        ? Math.max(0, inputSat - outputSat)
+        : null;
+
   const feeRate =
-    typeof tx.vsize === "number" &&
-    typeof tx.fee === "number" &&
-    tx.vsize > 0
-      ? (tx.fee / tx.vsize).toFixed(1)
+    typeof tx.vsize === "number" && tx.vsize > 0 && typeof feeSat === "number"
+      ? (feeSat / tx.vsize).toFixed(1)
       : null;
 
   const isSegWit = vin.some(
-    (v) =>
-      Array.isArray(v.txinwitness) && v.txinwitness.length > 0
+    (v) => Array.isArray(v.txinwitness) && v.txinwitness.length > 0
   );
+
   const formatDate = (ts) => {
     if (!ts) return "N/A";
 
@@ -66,14 +127,14 @@ export default function TxCard({ tx }) {
           </h2>
 
           <div className="grid gap-3 text-sm text-slate-200">
-            <Row label="TXID" value={tx.txid} mono wrap/>
+            <Row label="TXID" value={tx.txid} mono wrap />
             <Row
-                label="Block"
-                value={
-                  typeof tx.blockHeight === "number"
-                    ? `#${tx.blockHeight}`
-                    : "Unconfirmed"
-                }
+              label="Block"
+              value={
+                typeof tx.blockHeight === "number"
+                  ? `#${tx.blockHeight}`
+                  : "Unconfirmed"
+              }
             />
             <Row
               label="Date"
@@ -84,54 +145,34 @@ export default function TxCard({ tx }) {
               }
             />
             <Row
-                label="Status"
-                value={
-                    typeof tx.confirmations === "number" && tx.confirmations > 0
-                    ? `Confirmed (${tx.confirmations})`
-                    : "Unconfirmed"
-                }
-                />
+              label="Status"
+              value={
+                typeof tx.confirmations === "number" && tx.confirmations > 0
+                  ? `Confirmed (${tx.confirmations})`
+                  : "Unconfirmed"
+              }
+            />
             <Row
               label="Size"
-              value={
-                typeof tx.size === "number"
-                  ? `${tx.size} bytes`
-                  : "N/A"
-              }
+              value={typeof tx.size === "number" ? `${tx.size} bytes` : "N/A"}
             />
             <Row label="Inputs" value={vin.length} />
             <Row label="Outputs" value={vout.length} />
             <Row
               label="Input value"
-              value={
-                isCoinbase
-                  ? "Coinbase"
-                  : formatTriple(tx.inputValue)
-              }
+              value={isCoinbase ? "Coinbase" : formatTriple(inputSat)}
             />
             <Row
               label="Output value"
-              value={formatTriple(tx.outputValue)}
+              value={formatTriple(outputSat)}
             />
             <Row
               label="Transaction fee"
-              value={
-                isCoinbase
-                  ? "None"
-                  : formatTriple(tx.fee)
-              }
+              value={isCoinbase ? "None" : formatTriple(feeSat)}
             />
             <Row
               label="Fee rate"
               value={feeRate ? `${feeRate} sat/vB` : "N/A"}
-            />
-            <Row
-              label="Version"
-              value={
-                typeof tx.version === "number"
-                  ? tx.version
-                  : "N/A"
-              }
             />
             <Row label="SegWit" value={isSegWit ? "Yes" : "No"} />
           </div>

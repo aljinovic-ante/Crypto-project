@@ -14,10 +14,7 @@ const CRYPTO = [
   { id: "tron", symbol: "TRX", name: "TRON" }
 ];
 
-const FIAT = [
-  "USD","EUR","GBP","JPY","CHF",
-  "AUD","CAD","CNY","SEK","NOK"
-];
+const FIAT = ["USD", "EUR", "GBP", "JPY", "CHF", "AUD", "CAD", "CNY", "SEK", "NOK"];
 
 export default function ExchangePage() {
   const [from, setFrom] = useState("BTC");
@@ -25,31 +22,53 @@ export default function ExchangePage() {
   const [rate, setRate] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState(""); // ✅ add error state
 
-  const fromCrypto = CRYPTO.find(c => c.symbol === from);
+  const fromCrypto = CRYPTO.find((c) => c.symbol === from);
 
   useEffect(() => {
     if (!fromCrypto) return;
 
+    let cancelled = false;
+
     setLoading(true);
     setHistory([]);
+    setRate(null);
+    setErrorMsg("");
 
-    fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${fromCrypto.id}&vs_currencies=${to.toLowerCase()}`
-    )
-      .then(r => r.json())
-      .then(data => {
-        setRate(data?.[fromCrypto.id]?.[to.toLowerCase()] ?? null);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const vs = to.toLowerCase();
 
-    fetch(
-      `https://api.coingecko.com/api/v3/coins/${fromCrypto.id}/market_chart?vs_currency=${to.toLowerCase()}&days=30&interval=daily`
-    )
-      .then(r => r.json())
-      .then(data => {
-        const daily = data.prices.map(([ts, price]) => ({
+    const fetchRate = fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${fromCrypto.id}&vs_currencies=${vs}`
+    ).then(async (r) => {
+      if (!r.ok) {
+        if (r.status === 429) {
+          throw new Error("429");
+        }
+        throw new Error(`rate:${r.status}`);
+      }
+      return r.json();
+    });
+
+    const fetchHistory = fetch(
+      `https://api.coingecko.com/api/v3/coins/${fromCrypto.id}/market_chart?vs_currency=${vs}&days=30&interval=daily`
+    ).then(async (r) => {
+      if (!r.ok) {
+        if (r.status === 429) {
+          throw new Error("429");
+        }
+        throw new Error(`history:${r.status}`);
+      }
+      return r.json();
+    });
+
+    Promise.all([fetchRate, fetchHistory])
+      .then(([rateData, histData]) => {
+        if (cancelled) return;
+
+        setRate(rateData?.[fromCrypto.id]?.[vs] ?? null);
+
+        const daily = (histData?.prices ?? []).map(([ts, price]) => ({
           date: new Date(ts).toLocaleDateString("hr-HR", {
             day: "2-digit",
             month: "2-digit"
@@ -58,33 +77,45 @@ export default function ExchangePage() {
         }));
         setHistory(daily);
       })
-      .catch(() => setHistory([]));
+      .catch((err) => {
+        if (cancelled) return;
+
+        if (err?.message === "429") {
+          setErrorMsg("Too many requests — please try again later.");
+        } else {
+          setErrorMsg("Too many requests — please try again later.");
+        }
+
+        setHistory([]);
+        setRate(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [from, to]);
 
-  const rawMax =
-    history.length > 0
-      ? Math.max(...history.map(p => p.price))
-      : null;
+  const rawMax = history.length > 0 ? Math.max(...history.map((p) => p.price)) : null;
 
-  const yMax = rawMax
-    ? roundNice(rawMax * 1.1)
-    : null
+  const yMax = rawMax ? roundNice(rawMax * 1.1) : null;
 
   return (
     <div className="max-w-[1600px] mx-auto px-6 py-10 text-slate-200">
-      <h1 className="text-2xl font-semibold mb-8 text-center">
-        Exchange
-      </h1>
+      <h1 className="text-2xl font-semibold mb-8 text-center">Exchange</h1>
 
       <div className="rounded-2xl border border-white/10 bg-slate-900 p-10 space-y-10">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-6 max-w-4xl mx-auto">
           <select
             value={from}
-            onChange={e => setFrom(e.target.value)}
+            onChange={(e) => setFrom(e.target.value)}
             className="bg-slate-800 border border-slate-700 px-4 py-2 rounded-lg text-sm"
           >
             <optgroup label="Crypto">
-              {CRYPTO.map(c => (
+              {CRYPTO.map((c) => (
                 <option key={c.symbol} value={c.symbol}>
                   {c.symbol} — {c.name}
                 </option>
@@ -96,20 +127,29 @@ export default function ExchangePage() {
 
           <select
             value={to}
-            onChange={e => setTo(e.target.value)}
+            onChange={(e) => setTo(e.target.value)}
             className="bg-slate-800 border border-slate-700 px-4 py-2 rounded-lg text-sm"
           >
             <optgroup label="Fiat">
-              {FIAT.map(f => (
-                <option key={f} value={f}>{f}</option>
+              {FIAT.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
               ))}
             </optgroup>
           </select>
         </div>
 
-        <div className="text-center border-t border-white/10 pt-6">
+        <div className="text-center border-t border-white/10 pt-6 space-y-2">
           {loading && <div className="text-slate-400">Loading…</div>}
-          {!loading && rate !== null && (
+
+          {!loading && errorMsg && (
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 text-sm">
+              {errorMsg}
+            </div>
+          )}
+
+          {!loading && !errorMsg && rate !== null && (
             <div className="text-xl font-semibold">
               1 {from} ={" "}
               {rate.toLocaleString(undefined, {
@@ -121,7 +161,7 @@ export default function ExchangePage() {
           )}
         </div>
 
-        {history.length > 0 && (
+        {!loading && !errorMsg && history.length > 0 && (
           <PriceChart
             data={history}
             title="Price history — last 30 days"
