@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import ExplorerPage from "./pages/ExplorerPage";
 import BlockPage from "./pages/BlockPage";
@@ -21,6 +21,7 @@ export default function App() {
           <Route path="/exchange" element={<ExchangePage />} />
           <Route path="/mempool" element={<MempoolPage />} />
           <Route path="/address/:address" element={<AddressPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
     </BrowserRouter>
