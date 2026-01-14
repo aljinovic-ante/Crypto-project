@@ -22,7 +22,7 @@ export default function ExchangePage() {
   const [rate, setRate] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState(""); // ✅ add error state
+  const [errorMsg, setErrorMsg] = useState("");
 
   const fromCrypto = CRYPTO.find((c) => c.symbol === from);
 
